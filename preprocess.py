@@ -2,7 +2,7 @@
 import os
 import argparse
 import logging
-import dill as pickle
+import cloudpickle as pickle
 import urllib
 from tqdm import tqdm
 import sys

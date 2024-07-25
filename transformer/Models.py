@@ -65,6 +65,14 @@ class Encoder(nn.Module):
         self.d_model = d_model
 
     def forward(self, src_seq, src_mask, return_attns=False):
+        """
+        encoder步骤：
+            1. 首先经过embedding层
+            2. 然后embedding过一个position embedding；在加上embedding
+            3. 一般还要过一个dropout和layer norm作为transformer block的输入
+            4. 接下来就是n层的TransformerEncoderLayer
+
+        """
 
         enc_slf_attn_list = []
 
@@ -104,6 +112,12 @@ class Decoder(nn.Module):
         self.d_model = d_model
 
     def forward(self, trg_seq, trg_mask, enc_output, src_mask, return_attns=False):
+        """
+        decoder步骤：
+            1. 首先decoder的输入经过和encoder中相同的1.2.3。步骤处理。得到decoder的输出
+            2. 将encoder的输出作为k，v；decoder的输出作为q；经过n层TransformerDecoderLayer（encoder的输出不变，decoder的输出一直更新）
+
+        """
 
         dec_slf_attn_list, dec_enc_attn_list = [], []
 
@@ -185,13 +199,31 @@ class Transformer(nn.Module):
 
 
     def forward(self, src_seq, trg_seq):
+        """
+        ARGS：
+            src_seq：encoder的输入
+            trg_seq：decoder的输入（当然还要加上encoder的输出作为decoder的输入）
+
+        输出decoder输入的seq_len个vocab size大小多分类
+
+        mask生成：
+            1. src_mask是一个1 × seq_len的矩阵：src_mask和src_seq的pad保持一致，即非pad为true，pad为false
+            2. trg_mask是一个seq_len × seq_len的矩阵：[0, :]是只有第一个为true，[1, :]是第一个和第二个为true，一次类推，即
+                [
+                 [True, False, False, False...],
+                 [True, True, False, False...],
+                 [True, True, True, False...],
+                 ...
+                ]
+
+        """
 
         src_mask = get_pad_mask(src_seq, self.src_pad_idx)
         trg_mask = get_pad_mask(trg_seq, self.trg_pad_idx) & get_subsequent_mask(trg_seq)
 
         enc_output, *_ = self.encoder(src_seq, src_mask)
         dec_output, *_ = self.decoder(trg_seq, trg_mask, enc_output, src_mask)
-        seq_logit = self.trg_word_prj(dec_output)
+        seq_logit = self.trg_word_prj(dec_output)   # target vocab size大小的分类
         if self.scale_prj:
             seq_logit *= self.d_model ** -0.5
 

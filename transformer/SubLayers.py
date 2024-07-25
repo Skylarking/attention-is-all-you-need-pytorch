@@ -64,7 +64,7 @@ class PositionwiseFeedForward(nn.Module):
 
     def __init__(self, d_in, d_hid, dropout=0.1):
         super().__init__()
-        self.w_1 = nn.Linear(d_in, d_hid) # position-wise
+        self.w_1 = nn.Linear(d_in, d_hid) # position-wise   # 和kernel size为1的conv1d等价。 nn.Conv1D(in_channels=d_in, out_channels=d_hid, kernel_size=1)
         self.w_2 = nn.Linear(d_hid, d_in) # position-wise
         self.layer_norm = nn.LayerNorm(d_in, eps=1e-6)
         self.dropout = nn.Dropout(dropout)

@@ -5,7 +5,7 @@ This script handles the training process.
 import argparse
 import math
 import time
-import dill as pickle
+import cloudpickle as pickle
 from tqdm import tqdm
 import numpy as np
 import random
@@ -24,6 +24,10 @@ from transformer.Optim import ScheduledOptim
 __author__ = "Yu-Hsiang Huang"
 
 def cal_performance(pred, gold, trg_pad_idx, smoothing=False):
+    """
+    gold就是label，只不过将一个batch flatten到一个向量中
+
+    """
     ''' Apply label smoothing if needed '''
 
     loss = cal_loss(pred, gold, trg_pad_idx, smoothing=smoothing)
@@ -38,6 +42,10 @@ def cal_performance(pred, gold, trg_pad_idx, smoothing=False):
 
 
 def cal_loss(pred, gold, trg_pad_idx, smoothing=False):
+    """
+    trg_pad_idx是那些pad的位置，直接忽略这些损失
+
+    """
     ''' Calculate cross entropy loss, apply label smoothing if needed. '''
 
     gold = gold.contiguous().view(-1)
@@ -79,6 +87,8 @@ def train_epoch(model, training_data, optimizer, opt, device, smoothing):
     for batch in tqdm(training_data, mininterval=2, desc=desc, leave=False):
 
         # prepare data
+        # src和trg都存在BOS和EOS；gold是trg去除了BOS，保留EOS，并且多填充了一个PAD，然后再flatten
+        # 因此src_seq，trg_seq都是作为输入的（分别为encoder和decoder的输入），gold是作为label的
         src_seq = patch_src(batch.src, opt.src_pad_idx).to(device)
         trg_seq, gold = map(lambda x: x.to(device), patch_trg(batch.trg, opt.trg_pad_idx))
 
@@ -196,7 +206,9 @@ def train(model, training_data, validation_data, optimizer, device, opt):
                 ppl=valid_ppl, accu=100*valid_accu))
 
         if opt.use_tb:
+            # 困惑度
             tb_writer.add_scalars('ppl', {'train': train_ppl, 'val': valid_ppl}, epoch_i)
+            # 准确率，用的是token预测准确率
             tb_writer.add_scalars('accuracy', {'train': train_accu*100, 'val': valid_accu*100}, epoch_i)
             tb_writer.add_scalar('learning_rate', lr, epoch_i)
 
@@ -341,7 +353,7 @@ def prepare_dataloaders(opt, device):
     data = pickle.load(open(opt.data_pkl, 'rb'))
 
     opt.max_token_seq_len = data['settings'].max_len
-    opt.src_pad_idx = data['vocab']['src'].vocab.stoi[Constants.PAD_WORD]
+    opt.src_pad_idx = data['vocab']['src'].vocab.stoi[Constants.PAD_WORD]   # 这里src和trg都加了BOS（2）和EOS（3）
     opt.trg_pad_idx = data['vocab']['trg'].vocab.stoi[Constants.PAD_WORD]
 
     opt.src_vocab_size = len(data['vocab']['src'].vocab)
